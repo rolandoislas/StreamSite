@@ -1,0 +1,140 @@
+#! /bin/bash
+# StreamSite: Livestream a website via the command line
+# (c) 2016 Rolando Islas - https://www.rolandoislas.com
+#
+# This file is part of StreamSite.
+#
+# StreamSite is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# StreamSite is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with StreamSite.  If not, see <http://www.gnu.org/licenses/>.
+
+function displayHelp {
+	echo "StreamSite Help"
+	echo
+	echo "Usage: streamsite <url> <rtmp> [options]"
+	echo
+	echo "   <url>		URL of webpage to load"
+	echo "   <rtmp>		RTMP ingest server"
+	echo
+	echo "Options:"
+	echo "   -width <pixels>	Set the width of website viewport"
+	echo "   -height <pixels>	Set the height of website viewport"
+	echo "   -v			Enable verbose logging"
+	echo "   -delay <seconds>	Seconds between screenshots"
+	echo "   -dir <path>		Working directory"
+	echo "   -reload		Reload page after every render"
+	echo "   -format <ext>	Picture format based on extension"
+	echo "   -background <color>	Set HTML body background color"
+}
+
+requiredArgs=2
+
+i=1
+for arg in "$@"; do
+	nextIndex=($((i+1)))
+	param=${!nextIndex}
+	case $arg in
+		-width)
+			width=$param
+			;;
+		-height)
+			height=$param
+			;;
+		-v)
+			verbose=true
+			;;
+		-delay)
+			delay=$param
+			;;
+		-dir)
+			directory=$param
+			;;
+		-reload)
+			reload=true
+			;;
+		-format)
+			format=$param
+			;;
+		-background)
+			background=$param
+			;;
+	esac
+	if [[ $arg == "-"* ]] && [ $i -le $requiredArgs ]; then
+		displayHelp
+		exit 1
+	fi
+	((i++))
+done
+
+if [ -z "$width" ]; then
+	width=1920
+fi
+if [ -z "$height" ]; then
+	height=1080
+fi
+if [ -z "$verbose" ]; then
+	verbose=false
+fi
+if [ -z "$delay" ]; then
+	delay=5
+fi
+if [ -z "$directory" ]; then
+	directory=\.
+fi
+if [ -z "$reload" ]; then
+	reload=false
+fi
+if [ -z "$format" ]; then
+	format=jpg
+fi
+if [ -z "$background" ]; then
+	background=transparent
+fi
+
+url=$1
+rtmp=$2
+
+if [ -z "$url" ] || [ -z "$rtmp" ]; then
+	displayHelp
+	exit 1
+fi
+
+function clean {
+	kill $(jobs -p)
+	rm screenshot.$phantomid.$format
+}
+
+trap clean EXIT
+
+cd $directory
+
+# Start the screenshot worker
+phantomjs --ssl-protocol=any /etc/streamsite/capture.js $url $delay $width $height $verbose $reload $format $background &
+phantomid=$!
+
+# Wait for first screenshot to be rendered
+echo Getting first screenshot
+while [ ! -f screenshot.$phantomid.$format ]; do
+	sleep 1
+done
+
+# Frank, I have a monster that might rival yours.
+ffmpeg -re -loop 1 -i screenshot.$phantomid.$format -f lavfi -i anullsrc=cl=1 -shortest -c:v libx264 -preset veryfast -c:a libmp3lame -pix_fmt yuv420p -r 1 -x264-params keyint=2:no-scenecut=1 -vf scale=$width:$height -f flv $rtmp &
+
+while true; do
+	read input -p "Enter q to quit: "
+	if [[ "$input" == "q" ]]; then
+		echo Exiting
+		exit 0
+	fi
+done
+
