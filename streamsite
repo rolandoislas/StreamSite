@@ -22,18 +22,24 @@ function displayHelp {
 	echo
 	echo "Usage: streamsite <url> <rtmp> [options]"
 	echo
-	echo "   <url>		URL of webpage to load"
-	echo "   <rtmp>		RTMP ingest server"
+	echo "   <url>			URL of webpage to load"
+	echo "   <rtmp>			RTMP ingest server"
 	echo
 	echo "Options:"
-	echo "   -width <pixels>	Set the width of website viewport"
-	echo "   -height <pixels>	Set the height of website viewport"
-	echo "   -v			Enable verbose logging"
-	echo "   -delay <seconds>	Seconds between screenshots"
-	echo "   -dir <path>		Working directory"
-	echo "   -reload		Reload page after every render"
-	echo "   -format <ext>	Picture format based on extension"
-	echo "   -background <color>	Set HTML body background color"
+	echo "   -width-website <pixels>	Set the width of website viewport"
+	echo "   -height-website <pixels>	Set the height of website viewport"
+	echo "   -v				Enable verbose logging"
+	echo "   -delay <seconds>		Seconds between screenshots"
+	echo "   -dir <path>			Working directory"
+	echo "   -reload			Reload page after every render"
+	echo "   -format <ext>		Picture format based on extension"
+	echo "   -background <color>		Set HTML body background color"
+	echo "   -fps <fps>			Set fps of stream"
+	echo "   -keyint <keyint>		Set keyint"
+	echo "   -audio-bitrate <bitrate>	Set audio bitrate"
+	echo "   -video-bitrate <bitrate>	Set video bitrate"
+	echo "   -width-video <pixels>	Set width of output video"
+	echo "   -height-video <pixels> 	Set height of output video"
 }
 
 requiredArgs=2
@@ -43,11 +49,11 @@ for arg in "$@"; do
 	nextIndex=($((i+1)))
 	param=${!nextIndex}
 	case $arg in
-		-width)
-			width=$param
+		-width-website)
+			widthWebsite=$param
 			;;
-		-height)
-			height=$param
+		-height-website)
+			heightWebsite=$param
 			;;
 		-v)
 			verbose=true
@@ -67,6 +73,24 @@ for arg in "$@"; do
 		-background)
 			background=$param
 			;;
+		-fps)
+			fps=$param
+			;;
+		-keyint)
+			keyint=$param
+			;;
+		-bitrate-audio)
+			bitrateAudio=$param
+			;;
+		-bitrate-video)
+			bitrateVideo=$param
+			;;
+		-width-video)
+			widthVideo=$param
+			;;
+		-height-video)
+			heightVideo=$param
+			;;
 	esac
 	if [[ $arg == "-"* ]] && [ $i -le $requiredArgs ]; then
 		displayHelp
@@ -75,11 +99,11 @@ for arg in "$@"; do
 	((i++))
 done
 
-if [ -z "$width" ]; then
-	width=1920
+if [ -z "$widthWebsite" ]; then
+	widthWebsite=1920
 fi
-if [ -z "$height" ]; then
-	height=1080
+if [ -z "$heightWebsite" ]; then
+	heightWebsite=1080
 fi
 if [ -z "$verbose" ]; then
 	verbose=false
@@ -98,6 +122,24 @@ if [ -z "$format" ]; then
 fi
 if [ -z "$background" ]; then
 	background=transparent
+fi
+if [ -z "$fps" ]; then
+	fps=1
+fi
+if [ -z "$keyint" ]; then
+	keyint=2
+fi
+if [ -z "$bitrateAudio" ]; then
+	bitrateAudio=96k
+fi
+if [ -z "$bitrateVideo" ]; then
+	bitrateVideo=2500k
+fi
+if [ -z "$widthVideo" ]; then
+	widthVideo=1920
+fi
+if [ -z "$heightVideo" ]; then
+	heightVideo=1080
 fi
 
 url=$1
@@ -118,7 +160,7 @@ trap clean EXIT
 cd $directory
 
 # Start the screenshot worker
-phantomjs --ssl-protocol=any /etc/streamsite/capture.js $url $delay $width $height $verbose $reload $format $background &
+phantomjs --ssl-protocol=any /etc/streamsite/capture.js $url $delay $widthWebsite $heightWebsite $verbose $reload $format $background &
 phantomid=$!
 
 # Wait for first screenshot to be rendered
@@ -128,7 +170,7 @@ while [ ! -f screenshot.$phantomid.$format ]; do
 done
 
 # Frank, I have a monster that might rival yours.
-ffmpeg -re -loop 1 -i screenshot.$phantomid.$format -f lavfi -i anullsrc=cl=1 -shortest -c:v libx264 -preset veryfast -c:a libmp3lame -pix_fmt yuv420p -r 1 -x264-params keyint=2:no-scenecut=1 -vf scale=$width:$height -f flv $rtmp &
+ffmpeg -re -loop 1 -i screenshot.$phantomid.$format -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -c:v libx264 -b:v $bitrateVideo -pix_fmt yuv420p -preset veryfast -c:a libmp3lame -b:a $bitrateAudio -r $fps -x264-params keyint=$keyint:no-scenecut=1 -vf scale=$widthVideo:$heightVideo -f flv $rtmp &
 
 while true; do
 	sleep 5
