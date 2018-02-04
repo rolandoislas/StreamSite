@@ -161,6 +161,7 @@ cd $directory
 
 # Start the screenshot worker
 xvfb-run -a --server-args="-screen 0 640x480x24" phantomjs --ssl-protocol=any /etc/streamsite/capture.js $url $delay $widthWebsite $heightWebsite $verbose $reload $format $background $$ &
+xvfb_id=$!
 phantomid=$$
 
 # Wait for first screenshot to be rendered
@@ -170,9 +171,13 @@ while [ ! -f "$directory/screenshot.$phantomid.$format" ]; do
 done
 
 # Frank, I have a monster that might rival yours.
-ffmpeg -re -loop 1 -i "$directory/screenshot.$phantomid.$format" -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -c:v libx264 -b:v $bitrateVideo -pix_fmt yuv420p -preset veryfast -c:a libmp3lame -b:a $bitrateAudio -r $fps -x264-params keyint=$keyint:no-scenecut=1 -vf scale=$widthVideo:$heightVideo -f flv $rtmp &
+ffmpeg -re -loop 1 -i "$directory/screenshot.$phantomid.$format" -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -c:v libx264 -b:v $bitrateVideo -pix_fmt yuv420p -preset veryfast -c:a libmp3lame -b:a $bitrateAudio -r $fps -x264-params keyint=$keyint:no-scenecut=1 -vf scale=$widthVideo:$heightVideo -f flv $rtmp -nostats &
+ffmpeg_id=$!
 
 while true; do
-	sleep 5
+    if ! ps -p $xvfb_id > /dev/null || ! ps -p $ffmpeg_id > /dev/null; then
+        exit 1
+    fi
+	sleep 1
 done
 
