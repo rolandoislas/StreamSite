@@ -52,24 +52,20 @@ page.onResourceError = function(resourceError) {
 	console.log("Failed to load resource: " + resourceError.url);
 	console.log(resourceError.errorCode + ": " + resourceError.errorString);
 };
-page.onResourceTiemout = function(request) {
+page.onResourceTimeout = function(request) {
 	console.log("Request timeout: " + request.url);
 };
 page.viewportSize = {width: width, height: height};
 page.clipRect = {top: 0, left: 0, width: width, height: height};
-page.open(url);
-page.onInitialized = function() {
-	page.evaluate(function(background) {
-		var style = document.createElement("style"),
-      	text = document.createTextNode("body { background: " + background 
-      		+ " }");
-  		style.setAttribute("type", "text/css");
-  		style.appendChild(text);
-  		document.head.insertBefore(style, document.head.firstChild);
-	}, background);
-};
 page.onLoadFinished = function(status) {
-	if (reload) {
+	if (status !== "success") {
+        setTimeout(function () {
+            console.log("Reloading");
+            page.open(url);
+        }, 10000);
+        console.log("Attempting to reload in 10 seconds");
+	}
+	else if (reload) {
 		renderPage(page);
 		setTimeout(page.reload, delay * 1000);
 	}
@@ -80,9 +76,14 @@ page.onLoadFinished = function(status) {
 	}
 };
 
+page.open(url);
+
 function renderPage(page) {
 	if (verbose)
 		console.log("Page Rendered " + new Date().toLocaleTimeString());
+    page.evaluate(function(background) {
+        document.body.bgColor = background;
+    }, background);
 	page.render("screenshot." + system.pid + "." + format);
 }
 
