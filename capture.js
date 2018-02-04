@@ -27,7 +27,7 @@ phantom.onError = function(msg, trace) {
 
 if (args.length < 9) {
 	console.log("usage: phantomjs capture.js <url> <delay> <width> <height>" + 
-		"<bool verbose> <bool reload> <picture format> <background color>");
+		" <bool verbose> <bool reload> <picture format> <background color> <parent pid>");
 	phantom.exit();
 }
 
@@ -39,6 +39,7 @@ var verbose = args[5] == "true";
 var reload = args[6] == "true";
 var format = args[7];
 var background = args[8];
+var pid = args[9];
 
 var page = require("webpage").create();
 page.onError = function(msg, trace) {
@@ -84,6 +85,6 @@ function renderPage(page) {
     page.evaluate(function(background) {
         document.body.bgColor = background;
     }, background);
-	page.render("screenshot." + system.pid + "." + format);
+	page.render("screenshot." + pid + "." + format);
 }
 

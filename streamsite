@@ -152,7 +152,7 @@ fi
 
 function clean {
 	kill $(jobs -p)
-	rm screenshot.$phantomid.$format
+	rm "$directory/screenshot.$phantomid.$format"
 }
 
 trap clean EXIT
@@ -160,17 +160,17 @@ trap clean EXIT
 cd $directory
 
 # Start the screenshot worker
-xvfb-run --server-args="-screen 0 640x480x24" phantomjs --ssl-protocol=any /etc/streamsite/capture.js $url $delay $widthWebsite $heightWebsite $verbose $reload $format $background &
-phantomid=$!
+xvfb-run -a --server-args="-screen 0 640x480x24" phantomjs --ssl-protocol=any /etc/streamsite/capture.js $url $delay $widthWebsite $heightWebsite $verbose $reload $format $background $$ &
+phantomid=$$
 
 # Wait for first screenshot to be rendered
 echo Getting first screenshot
-while [ ! -f screenshot.$phantomid.$format ]; do
+while [ ! -f "$directory/screenshot.$phantomid.$format" ]; do
 	sleep 1
 done
 
 # Frank, I have a monster that might rival yours.
-ffmpeg -re -loop 1 -i screenshot.$phantomid.$format -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -c:v libx264 -b:v $bitrateVideo -pix_fmt yuv420p -preset veryfast -c:a libmp3lame -b:a $bitrateAudio -r $fps -x264-params keyint=$keyint:no-scenecut=1 -vf scale=$widthVideo:$heightVideo -f flv $rtmp &
+ffmpeg -re -loop 1 -i "$directory/screenshot.$phantomid.$format" -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -c:v libx264 -b:v $bitrateVideo -pix_fmt yuv420p -preset veryfast -c:a libmp3lame -b:a $bitrateAudio -r $fps -x264-params keyint=$keyint:no-scenecut=1 -vf scale=$widthVideo:$heightVideo -f flv $rtmp &
 
 while true; do
 	sleep 5
