@@ -20,3 +20,5 @@ Full usage/documentation can be found by running streamsite without passing any 
 
 With those dependencies installed, place [capture.js](capture.js) in `/etc/streamsite/` and [streamsite](streamsite) in `/usr/local/bin/`.
 
+The script `install.sh` can be used to copy the files to their expected directories
+
