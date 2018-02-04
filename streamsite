@@ -160,7 +160,7 @@ trap clean EXIT
 cd $directory
 
 # Start the screenshot worker
-phantomjs --ssl-protocol=any /etc/streamsite/capture.js $url $delay $widthWebsite $heightWebsite $verbose $reload $format $background &
+xvfb-run --server-args="-screen 0 640x480x24" phantomjs --ssl-protocol=any /etc/streamsite/capture.js $url $delay $widthWebsite $heightWebsite $verbose $reload $format $background &
 phantomid=$!
 
 # Wait for first screenshot to be rendered
